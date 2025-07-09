@@ -40,7 +40,7 @@ export const loginUser = createAsyncThunk(
 
 export const registerUser = createAsyncThunk(
   "auth/register",
-  async (customer: Omit<User, "password">) => {
+  async (customer: Omit<User, "id">) => {
     const response = await axios.post(`${API_URL}register`, customer);
     return response.data.data;
   }
