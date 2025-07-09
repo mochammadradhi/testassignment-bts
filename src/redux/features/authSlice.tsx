@@ -1,6 +1,6 @@
-import type { User } from "@/lib/types";
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import api from "@/lib/axios";
+import type { User } from "@/lib/types";
 
 interface AuthState {
   token: string | null;
@@ -9,8 +9,6 @@ interface AuthState {
   error: string | null;
 }
 
-const API_URL = import.meta.env.VITE_API_URL;
-console.log(API_URL);
 const initialState: AuthState = {
   token: localStorage.getItem("token") || null,
   isAuthenticated: !!localStorage.getItem("token"),
@@ -21,27 +19,23 @@ const initialState: AuthState = {
 export const loginUser = createAsyncThunk(
   "auth/login",
   async (credentials: { username: string; password: string }) => {
-    const response = await axios.post(`${API_URL}login`, credentials);
+    const response = await api.post("/login", credentials);
     const { token } = response.data.data;
+
+    localStorage.setItem("token", token);
     localStorage.setItem(
       "authState",
-      JSON.stringify({
-        isAuthenticated: true,
-        token,
-      })
+      JSON.stringify({ token, isAuthenticated: true })
     );
-    return {
-      data: {
-        token,
-      },
-    };
+
+    return { data: { token } };
   }
 );
 
 export const registerUser = createAsyncThunk(
   "auth/register",
-  async (customer: Omit<User, "id">) => {
-    const response = await axios.post(`${API_URL}register`, customer);
+  async (customer: User) => {
+    const response = await api.post("/register", customer);
     return response.data.data;
   }
 );
@@ -56,10 +50,7 @@ const authSlice = createSlice({
       localStorage.clear();
     },
     hydrate: (state, action) => {
-      return {
-        ...state,
-        ...action.payload,
-      };
+      return { ...state, ...action.payload };
     },
   },
   extraReducers: (builder) => {
@@ -69,17 +60,15 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
-        state.isAuthenticated = true;
         state.loading = false;
-        state.error = null;
         state.token = action.payload.data.token;
+        state.isAuthenticated = true;
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || "Login failed";
-        // Clear any partial state on failure
         state.token = null;
         state.isAuthenticated = false;
+        state.error = action.error.message || "Login failed";
       })
       .addCase(registerUser.pending, (state) => {
         state.loading = true;
@@ -87,7 +76,6 @@ const authSlice = createSlice({
       })
       .addCase(registerUser.fulfilled, (state) => {
         state.loading = false;
-        state.error = null;
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;

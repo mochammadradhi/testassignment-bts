@@ -1,10 +1,20 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser } from "../redux/features/authSlice";
 import { useNavigate } from "react-router-dom";
-import { Button } from "..//components/ui/button";
-import { Input } from "..//components/ui/input";
+import { useFormik } from "formik";
+import * as yup from "yup";
+import { loginUser } from "@/redux/features/authSlice";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { RootState, AppDispatch } from "@/redux/store";
+
+const validationSchema = yup.object().shape({
+  username: yup.string().required("Username is required"),
+  password: yup
+    .string()
+    .min(6, "Minimum 6 characters")
+    .required("Password is required"),
+});
 
 const LoginPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -13,13 +23,20 @@ const LoginPage = () => {
     (state: RootState) => state.auth
   );
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    dispatch(loginUser({ username, password }));
-  };
+  const formik = useFormik({
+    initialValues: {
+      username: "",
+      password: "",
+    },
+    validationSchema,
+    onSubmit: (values) => {
+      dispatch(loginUser(values)).then((res) => {
+        if (res.meta.requestStatus === "fulfilled") {
+          navigate("/");
+        }
+      });
+    },
+  });
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -30,24 +47,39 @@ const LoginPage = () => {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <form
-        onSubmit={handleLogin}
+        onSubmit={formik.handleSubmit}
         className="w-full max-w-sm space-y-4 p-6 border rounded-xl shadow-lg"
       >
         <h1 className="text-2xl font-bold">Login</h1>
 
-        <Input
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-        <Input
-          placeholder="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div>
+          <Input
+            id="username"
+            name="username"
+            placeholder="Username"
+            value={formik.values.username}
+            onChange={formik.handleChange}
+          />
+          {formik.touched.username && formik.errors.username && (
+            <p className="text-red-500 text-sm">{formik.errors.username}</p>
+          )}
+        </div>
 
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        <div>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={formik.values.password}
+            onChange={formik.handleChange}
+          />
+          {formik.touched.password && formik.errors.password && (
+            <p className="text-red-500 text-sm">{formik.errors.password}</p>
+          )}
+        </div>
+
+        {error && <p className="text-red-500 text-sm">{error.errorMessage}</p>}
 
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? "Logging in..." : "Login"}
